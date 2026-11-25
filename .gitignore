@@ -1,0 +1,9 @@
+ideation/
+node_modules/
+dist/
+.env*
+!.env.example
+*.db
+*.db-*
+.agy-staff/
+app/shots/

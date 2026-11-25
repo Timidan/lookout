@@ -1,0 +1,21 @@
+{
+  "name": "g2-trader",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host localhost --port 5173 --strictPort",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build",
+    "test": "node --import tsx --test state.test.ts icons.test.ts chart.test.ts",
+    "icons:sheet": "node --import tsx scripts/icon-sheet.ts",
+    "mock": "node --import tsx mock.ts"
+  },
+  "dependencies": { "@evenrealities/even_hub_sdk": "0.0.16" },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.0"
+  }
+}

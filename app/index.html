@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Lookout</title>
+    <style>
+      * { box-sizing: border-box }
+      body { max-width: 36rem; margin: auto; padding: 1.5rem; font: 1rem/1.5 system-ui, sans-serif; color: #171917 }
+      h1 { font-size: 1.75rem } h2 { margin-top: 2rem; font-size: 1.15rem }
+      [hidden] { display: none !important } #pair-code { font-variant-numeric: tabular-nums }
+      #pair-link { display: inline-block; padding: .5rem .9rem; border: 1px solid currentColor; color: inherit }
+      table { border-collapse: collapse; width: 100% } th, td { text-align: left; vertical-align: top; padding: .4rem .8rem .4rem 0 }
+      th { white-space: nowrap }
+      footer { margin-top: 2rem }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Lookout</h1>
+      <h2>Wallet</h2>
+      <p id="status" role="status">Checking pairing…</p>
+      <p id="pair-code" hidden></p>
+      <a id="pair-link" target="_blank" rel="noopener noreferrer" hidden>Open pairing page</a>
+      <h2>Glasses controls</h2>
+      <table><tbody>
+        <tr><th scope="row">Tap</th><td>Take the action shown or send a priced order</td></tr>
+        <tr><th scope="row">Hold</th><td>Hold for two seconds to confirm a big action. Elsewhere, hold to speak and release to send.</td></tr>
+        <tr><th scope="row">Double tap</th><td>Go back. From home, open the exit prompt.</td></tr>
+        <tr><th scope="row">Swipe</th><td>Browse cards or choices, or change a ticket’s size</td></tr>
+      </tbody></table>
+      <footer>Testnet only. Your funds stay in your Hyperliquid account.</footer>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>

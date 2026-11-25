@@ -1,0 +1,27 @@
+{
+  "name": "glasses-testnet-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13 <23"
+  },
+  "scripts": {
+    "start": "node --env-file-if-exists=.env --import tsx main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test *.test.ts",
+    "probe": "node --env-file-if-exists=.env --import tsx probe.ts",
+    "sign-check": "node --env-file-if-exists=.env --import tsx sign-check.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.11",
+    "@nktkas/hyperliquid": "^0.33.3",
+    "hono": "^4.13.20",
+    "viem": "^2.58.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9"
+  }
+}

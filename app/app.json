@@ -1,0 +1,14 @@
+{
+  "package_id": "xyz.timidan.g2trader",
+  "edition": "202601",
+  "name": "Lookout",
+  "version": "0.1.0",
+  "min_app_version": "2.2.10",
+  "min_sdk_version": "0.0.16",
+  "entrypoint": "index.html",
+  "permissions": [
+    { "name": "network", "desc": "Connect to the trading backend.", "whitelist": ["http://localhost:8790", "http://localhost:8788"] },
+    { "name": "g2-microphone", "desc": "Capture a spoken command while the touchpad is held." }
+  ],
+  "supported_languages": ["en"]
+}
