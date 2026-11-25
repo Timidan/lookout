@@ -9,9 +9,9 @@ Lookout shows the one Hyperliquid position that needs you on your Even G2 glasse
 | | |
 |---|---|
 | Track | 02 · Crypto & DeFi (Hyperliquid testnet) |
-| Hosted app | `https://lookout.timidan.xyz` (DNS not live yet) |
+| Hosted app | https://lookout.timidan.xyz |
 | Demo video | to come |
-| Try it | `evenhub-simulator https://lookout.timidan.xyz` once the address is live, or run it locally below |
+| Try it | `evenhub-simulator https://lookout.timidan.xyz`, or run it locally below |
 
 ## What it does
 
