@@ -6,15 +6,14 @@ import { priceTicket } from './pricing.js'
 import { nextStack } from './cards.js'
 
 export async function sampleTickets(list: Market[]): Promise<{ market: Market; ticket: Ticket }[]> {
-  const preview = async (market: Market) => {
-    const snapshot = await book(market.id)
+  const preview = (market: Market, snapshot: Awaited<ReturnType<typeof book>>) => {
     const ticket = priceTicket(market, snapshot, { instrumentId: market.id, side: 'buy', usd: '15' })
     return { market, ticket }
   }
   const regular = (id: string) => {
     const found = list.find(m => m.id === id)
     if (!found) throw new Error(`Missing testnet market: ${id}`)
-    return preview(found)
+    return book(found.id).then(snapshot => preview(found, snapshot))
   }
   const outcome = async () => {
     const outcomes = list.filter(m => m.kind === 'outcome' && m.quoteUsd !== null)
@@ -28,8 +27,7 @@ export async function sampleTickets(list: Market[]): Promise<{ market: Market; t
         throw error
       })
       if (!snapshot?.levels[0].length || !snapshot.levels[1].length) continue
-      const ticket = priceTicket(market, snapshot, { instrumentId: market.id, side: 'buy', usd: '15' })
-      return { market, ticket }
+      return preview(market, snapshot)
     }
     throw new Error('No two-sided outcome book in the first 30 candidates')
   }

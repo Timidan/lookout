@@ -25,7 +25,7 @@ Most trading apps put a dashboard in front of you. On glasses you get a few word
 | In profit | `ETH long is up +$41` | Tap to move the stop to entry |
 | Waiting orders | `3 buy orders waiting` | Hold to cancel them; your stops stay |
 | Open positions | `5 positions open · +$35.10` | Hold to close all |
-| Markets | Price, the last hour as a line graph, bid and ask | Tap to trade |
+| Markets | Live price, a line of the last 90 seconds that moves with each tick, the hour's change, bid and ask | Tap to trade |
 
 Each card's key number is drawn about three times larger than the text: the stop price a tap will set, the distance to liquidation, the dollar size of a ticket, a market's live price, a position's profit or loss. It is always a copy of a number already in the card's text, and a tap confirms the text.
 

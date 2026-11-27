@@ -2,7 +2,7 @@ import { HTTPException } from 'hono/http-exception'
 import type { Card, Instrument, StreamEvent } from '../shared/api.js'
 import { currentStack, displayedCards } from './actions.js'
 import { watchCard } from './cards.js'
-import { cachedHistory, decimal, markets, publicInstrument } from './venue.js'
+import { cachedHistory, decimal, liveHistory, markets, publicInstrument, recordTick } from './venue.js'
 import { device, sampleAddress } from './pair.js'
 import { subscribe } from './ws.js'
 
@@ -61,7 +61,8 @@ export async function stream(token: string, watch: string[], signal: AbortSignal
         try {
           const latest = cards.map(c => {
             const quote = c.kind === 'watch' && c.action?.type === 'open_market' && quotes.get(c.action.instrumentId)
-            return quote ? watchCard({...quote,spark:c.spark,change1h:c.change1h,trend:c.trend,trendLow:c.trendLow,trendHigh:c.trendHigh}) : c
+            return quote ? watchCard({...quote,spark:c.spark,change1h:c.change1h,
+              ...liveHistory(quote.id,{trend:c.trend,trendLow:c.trendLow,trendHigh:c.trendHigh},quote.mid)}) : c
           })
           const text = JSON.stringify(latest)
           if (printed === text) return
@@ -90,7 +91,9 @@ export async function stream(token: string, watch: string[], signal: AbortSignal
             const ask:string|null = data.bbo?.[1]?.px ?? null
             const old = quotes.get(id)
             if (old && bid === old.bid && ask === old.ask) return
-            const quote = {...publicInstrument(m),...cachedHistory(id),bid,ask,mid:bid && ask ? decimal((Number(bid)+Number(ask))/2) : null}
+            const mid = bid && ask ? decimal((Number(bid)+Number(ask))/2) : null
+            if (mid) recordTick(id, Number(data.time) || Date.now(), Number(mid))
+            const quote = {...publicInstrument(m),...liveHistory(id,cachedHistory(id),mid),bid,ask,mid}
             quotes.set(id,quote)
             if (requested.has(id)) event({type:'quote',instrument:quote})
             queueNext()

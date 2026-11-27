@@ -136,6 +136,7 @@ export async function connectGlasses(
   let imageTimer: number | undefined
   let lastImageAt = -Infinity
   let lastChartAt = -Infinity
+  let lastWasBig = false
 
   // Pictures share one paced lane. Text, navigation and list input never wait for a picture.
   function sendImages() {
@@ -146,11 +147,16 @@ export async function connectGlasses(
     const iconChanged = shownIcon ? shownIcon !== icon && !shownIcon.every((b, i) => b === icon[i]) : !!page.icon
     // The large number goes first: it is what the wearer reads. A later number (a price tick) waits
     // until the icon and graph are on screen, so a fast-moving price never holds them back.
-    const big = page.big && page.big.key !== shownBig && (!shownBig || !iconChanged && (!page.chart || !!shownChart)) ? page.big : undefined
+    // A price that ticks every second would otherwise hold a due graph back for good: after a number,
+    // a graph that is 2 s old goes next.
+    const now = performance.now()
+    const chartDue = !!page.chart && !!shownChart && page.chart.key !== shownChart && now >= lastChartAt + 2_000
+    const big = page.big && page.big.key !== shownBig && (!shownBig || !iconChanged && (!page.chart || !!shownChart))
+      && !(chartDue && lastWasBig) ? page.big : undefined
     const chart = big || iconChanged ? undefined : page.chart
     if (!big && !iconChanged && (!chart || chart.key === shownChart)) return
-    const now = performance.now()
-    const delay = Math.max(lastImageAt + 100, chart && chart.id === shownChartId ? lastChartAt + 10_000 : 0) - now
+    // A market's live graph redraws at most every 2 s; the price number above it still goes first.
+    const delay = Math.max(lastImageAt + 100, chart && chart.id === shownChartId ? lastChartAt + 2_000 : 0) - now
     if (delay > 0) { imageTimer = window.setTimeout(sendImages, delay); return }
     const generation = pageGeneration
     const update = big ? { containerID: bigID, containerName: 'big' + bigID, imageData: big.pixels } : chart
@@ -158,6 +164,7 @@ export async function connectGlasses(
       : { containerID: iconID, containerName: 'icon' + iconID, imageData: iconRowBytes([icon]) }
     sendingImageID = update.containerID
     lastImageAt = now
+    lastWasBig = !!big
     if (chart) lastChartAt = now
     void bridge.updateImageRawData(new ImageRawDataUpdate(update)).then(result => {
       if (generation !== pageGeneration) return

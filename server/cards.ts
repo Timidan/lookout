@@ -8,15 +8,14 @@ import { defaultStopPx, roundVenuePrice } from './pricing.js'
 import { decimal, hydrateQuotes, marketHistory, markets, type Market } from './venue.js'
 
 type VenueOrder = FrontendOpenOrdersResponse[number]
-type Stop = { oid: number; instrumentId: string; triggerPx: string; size: string; positionTpsl: boolean }
 type Entry = { oid: number; instrumentId: string; market: Market; side: 'buy' | 'sell'; size: string; px: string }
 export interface CardSnapshot {
   account: Account | null
   entries: Entry[]
-  stops: Record<string, Stop>
+  stops: Record<string, { oid: number }>
   activeStopCount: number
 }
-const priority: Card['kind'][] = ['liq_before_stop','no_stop','thin_buffer','stop_to_entry','position','step_away','close_all','idle','watch']
+const priority: Card['kind'][] = ['liq_before_stop','no_stop','thin_buffer','stop_to_entry','position']
 function card(content: Omit<Card,'id'|'confirm'>, state?: unknown): Card {
   const {kind, action, line1, line2, detail} = content
   // Proposed stop prices can move with the mark. Identify the underlying position and its resting orders.
@@ -24,10 +23,7 @@ function card(content: Omit<Card,'id'|'confirm'>, state?: unknown): Card {
   const hash = createHash('sha256').update(JSON.stringify([identity ?? null, state ?? null])).digest('hex').slice(0, 24)
   const result: Card = { ...content, id: `${kind}:${hash}`, line1: line1.slice(0, 40), line2: line2.slice(0, 40) }
   if (detail) result.detail = detail.slice(0, 44)
-  if (action) {
-    result.action = action
-    result.confirm = ['cancel_entries','close_all','reduce'].includes(action.type) ? 'hold' : 'tap'
-  }
+  if (action) result.confirm = ['cancel_entries','close_all','reduce'].includes(action.type) ? 'hold' : 'tap'
   return result
 }
 
@@ -71,7 +67,7 @@ function positionCard(p: Position, m: Market | undefined, protective: VenueOrder
       ...(detail && {detail:detail.charAt(0).toUpperCase()+detail.slice(1)}),
       ...(tradable && {action:{type:'open_market',instrumentId:id}})}, state)
   }
-  if (p.kind !== 'perp' || !m || !tradable) return normal()
+  if (p.kind !== 'perp' || !tradable) return normal()
   const validLiq = Number.isFinite(liq) && liq > 0
   const buffer = validLiq && (entry-liq)*direction > 0 ? Math.max(0,Math.min(1,(mark-liq)/(entry-liq))) : undefined
   const fullSize = parseUnits(p.size.replace(/^-/,'') ,m.szDecimals)
@@ -86,7 +82,7 @@ function positionCard(p: Position, m: Market | undefined, protective: VenueOrder
   const stop = threshold ? Number(threshold.triggerPx) : undefined
   // Moving an individual full-size static stop preserves independently placed partial/trailing orders.
   const movable = threshold && orderSize(threshold) >= fullSize && !threshold.orderType.startsWith('Trailing') ? threshold : undefined
-  if (movable) snapshot.stops[id] = { oid: movable.oid, instrumentId: id, triggerPx: movable.triggerPx, size: movable.sz, positionTpsl: movable.isPositionTpsl }
+  if (movable) snapshot.stops[id] = { oid: movable.oid }
   const reduceLine = 'Hold to reduce by half'
   const wantStop = (kind: 'liq_before_stop' | 'no_stop', trigger: string | undefined) => {
     const line1 = kind === 'no_stop' ? `${leveraged} has ${protective.length ? 'a partial stop' : 'no stop'}` : `${leveraged} · stop is too far`
@@ -132,7 +128,8 @@ function positionCard(p: Position, m: Market | undefined, protective: VenueOrder
 }
 
 /** Pure ranking over one owner snapshot. Only top-level stops are active at the venue. */
-export function rankCards(account: Account | null, orders: FrontendOpenOrdersResponse, catalog: Market[], watch: Market[], thinPct = 10, stopPct = '2', now = account?.updatedAt ?? 0) {
+export function rankCards(account: Account | null, orders: FrontendOpenOrdersResponse, catalog: Market[], watch: Market[], thinPct = 10, stopPct = '2') {
+  const now = account?.updatedAt ?? 0
   const snapshot: CardSnapshot = { account, entries:[], stops:Object.create(null), activeStopCount:0 }
   const byId = new Map(catalog.map(m => [m.id,m]))
   const activeIds = new Set<number>()

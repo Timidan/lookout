@@ -9,11 +9,12 @@ import type { SayResult } from '../shared/api.js'
 import { exact, ticker } from '../shared/format.js'
 import { numberChoices, parseCommand, searchMarkets } from './commands.js'
 import { actOnCard, currentStack, displayedCards } from './actions.js'
-import { agent, device, registerPair, sampleAddress } from './pair.js'
+import { agent, registerPair, sampleAddress, session, type Device } from './pair.js'
 import { cancel } from './signing.js'
 import { stream } from './stream.js'
 import { closePosition, confirm, owner, preview, withOwnerAction } from './tickets.js'
-import { account, accountMarkets, hydrateQuotes, market, marketHistory, markets, publicInstrument } from './venue.js'
+import { account } from './account.js'
+import { accountMarkets, hydrateQuotes, market, marketHistory, markets, publicInstrument } from './venue.js'
 import { transcribe } from './voice.js'
 
 const app = new Hono()
@@ -27,7 +28,9 @@ const tooLarge = () => { throw new HTTPException(413, {message:'Request body is 
 app.use('/api/*', (c, next) => bodyLimit({maxSize:c.req.path === '/api/voice' ? 32_000 * 60 : 16_384, onError:tooLarge})(c, next))
 // Anyone can start a device session, so each client address gets a per-minute budget: new sessions and
 // speech-to-text are the costly calls; everything else is capped so one client can't exhaust the venue's rate limit.
-// ponytail: in-memory fixed window, one process; behind the edge proxy the last X-Forwarded-For entry is the client.
+// ponytail: in-memory fixed window, one process. The client address comes from X-Forwarded-For, which the edge
+// proxy sets to Cloudflare's CF-Connecting-IP and which no one else can send: the edge drops non-Cloudflare
+// connections and the container publishes no port. Exposing the backend directly would make this spoofable.
 const hits = new Map<string,{count:number; reset:number}>()
 app.use('/api/*', async (c, next) => {
   const path = c.req.path
@@ -52,9 +55,6 @@ app.onError((error, c) => {
 app.notFound(c => c.json({error:{code:'not_found',message:'Page not found. Go back'}}, 404))
 registerPair(app)
 
-function session(c: Context) {
-  return device(/^Bearer ([0-9a-f]{64})$/i.exec(c.req.header('Authorization') ?? '')?.[1] ?? '')
-}
 async function json(c: Context) {
   const value = await c.req.json().catch(() => null)
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new HTTPException(400, {message:'Send a JSON object.'})
@@ -94,7 +94,7 @@ app.post('/api/positions/close', async c => {
 })
 app.delete('/api/orders/:oid', async c => {
   const s = session(c)
-  owner(s)
+  const address = owner(s)
   const id = c.req.query('instrumentId')
   const raw = c.req.param('oid')
   const oid = Number(raw)
@@ -103,11 +103,11 @@ app.delete('/api/orders/:oid', async c => {
   }
   const m = (await accountMarkets()).find(item => item.id === id && item.asset >= 0)
   if (!m) throw new HTTPException(404, {message:'Unknown order instrument.'})
-  await withOwnerAction(owner(s), () => cancel(agent(s.id), m, oid))
+  await withOwnerAction(address, () => cancel(agent(s.id), m, oid))
   return c.json({ok:true})
 })
 
-async function say(s: ReturnType<typeof device>, transcript: unknown, voice = false): Promise<SayResult> {
+async function say(s: Device, transcript: unknown, voice = false): Promise<SayResult> {
   if (typeof transcript !== 'string' || transcript.length > 512) throw new HTTPException(400, {message:'Use a short text command.'})
   let list = await markets()
   const isClose = /^\s*close\b/i.test(transcript)
@@ -128,7 +128,6 @@ async function say(s: ReturnType<typeof device>, transcript: unknown, voice = fa
   if (command.type === 'cancel') {
     owner(s)
     const orders = snapshot!.openOrders.filter(o => o.instrumentId === command.instrumentId)
-    if (!orders.length) return {transcript,reply:'No matching open orders'}
     // The contract represents cancellation only via DELETE /api/orders/:oid.
     const which = exact(orders.length)+' '+ticker(orders[0].symbol)+(orders.length === 1 ? ' order' : ' orders')
     return {transcript,reply:('Open orders to cancel ' + which).slice(0,60)}
@@ -153,7 +152,15 @@ app.get('/api/stream', async c => {
 })
 
 // The hosted build serves the glasses app from the same origin as the API.
-if (process.env.STATIC_DIR) app.use('*', serveStatic({root:process.env.STATIC_DIR}))
+if (process.env.STATIC_DIR) {
+  // The page names the current bundle, so it is checked on every load; without this a WebView kept a
+  // page from an earlier deploy, and its bundle, for hours. The hashed bundles themselves can be cached.
+  app.use('*', async (c, next) => {
+    await next()
+    if (c.res.headers.get('Content-Type')?.startsWith('text/html')) c.res.headers.set('Cache-Control', 'no-cache')
+  })
+  app.use('*', serveStatic({root:process.env.STATIC_DIR}))
+}
 
 const port = Number(process.env.PORT ?? 8790)
 if (!Number.isInteger(port) || port < 1 || port > 65535 || port === 8788) throw new Error('Invalid server PORT. Port 8788 is reserved for the mock.')

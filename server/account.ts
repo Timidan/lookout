@@ -1,18 +1,14 @@
 import { HTTPException } from 'hono/http-exception'
-import { formatUnits, parseUnits } from 'viem'
 import type { ActiveAssetDataResponse, ClearinghouseStateResponse, FrontendOpenOrdersResponse, PortfolioResponse, SpotClearinghouseStateResponse, TokenDetailsResponse, UserAbstractionResponse } from '@nktkas/hyperliquid/api/info'
 import type { Account, Position, Ticket } from '../shared/api.js'
 import { price, ticker } from '../shared/format.js'
+import { dec as money, min, one as unit, print } from './pricing.js'
 import { accountMarkets, decimal, info, type Market } from './venue.js'
 import { subscribe } from './ws.js'
 
 type Spot = SpotClearinghouseStateResponse
 type Bal = Spot['balances'][number]
 type States = [string, ClearinghouseStateResponse][]
-const unit = 10n ** 18n
-const money = (n: string) => parseUnits(n, 18)
-const print = (n: bigint) => formatUnits(n, 18)
-const min = (a: bigint, b: bigint) => a < b ? a : b
 
 function allPerpStates(owner: string): Promise<States> {
   return new Promise((resolve, reject) => {

@@ -2,7 +2,7 @@ import { strict as assert } from 'node:assert'
 import test from 'node:test'
 import type { Instrument } from '../shared/api.js'
 import { numberChoices, parseCommand, searchMarkets } from './commands.js'
-import { quoteOrder } from './pricing.js'
+import { aboveCap, quoteOrder } from './pricing.js'
 
 const btc: Instrument = { id: 'BTC', symbol: 'BTC', title: 'Bitcoin perp', kind: 'perp', bid: null, ask: null, mid: null, szDecimals: 5, maxLeverage: 40 }
 const spot: Instrument = { ...btc, id: 'PURR/USDC', symbol: 'PURR', title: 'PURR/USDC', kind: 'spot', szDecimals: 0, maxLeverage: undefined }
@@ -27,6 +27,9 @@ test('commands resolve the brief examples and ask which market on a tie', () => 
   ]
   assert.deepEqual(parseCommand('no on ravens 20 shares', teamBook), { type: 'order', intent: { instrumentId: no.id, side: 'buy', size: '20' } })
   assert.deepEqual(parseCommand('yes on texans 20 shares', teamBook), { type: 'order', intent: { instrumentId: no.id, side: 'buy', size: '20' } })
+  const dexBtc = [btc, { ...btc, id: 'sekaw:BTC' }, { ...btc, id: 'pyth:BTC' }]
+  assert.deepEqual(parseCommand('long btc', dexBtc), { type: 'order', intent: { instrumentId: 'BTC', side: 'buy' } })
+  assert.equal(parseCommand('long btc', dexBtc.slice(1)).type, 'reply')
   assert.equal(parseCommand('buy ravens 20 shares', list).type, 'reply')
   assert.equal(parseCommand('maybe buy something', list).type, 'reply')
   assert.deepEqual(searchMarkets('b t c', list), [btc])
@@ -35,7 +38,6 @@ test('commands resolve the brief examples and ask which market on a tie', () => 
 test('voice checks teen/tens pairs only for the spoken quantity', () => {
   const cmd = parseCommand('long btc fifteen dollars 5x stop sixty thousand', list)
   assert.equal(cmd.type, 'order')
-  if (cmd.type !== 'order') return
   assert.deepEqual(numberChoices(cmd.intent), {
     reply: '$15 or $50?',
     choices: ['15', '50'].map(usd => ({ label: '$' + usd, intent: { instrumentId: 'BTC', side: 'buy', usd, leverage: 5, stopPx: '60000' } })),
@@ -75,4 +77,11 @@ test('pricing uses live depth, floors size, respects directional ticks and caps'
   const resting = quoteOrder(yes, outcomeBook, { instrumentId: yes.id, side: 'buy', size: '20', limitPx: '0.4987654' }, '200', 100)
   assert.equal(resting.px, '0.49876')
   assert.ok(resting.warnings[0].includes('rest'))
+})
+
+test('an order with no USD rate counts as over the cap', () => {
+  const ticket = { side: 'buy', size: '1', px: '100' } as Parameters<typeof aboveCap>[1]
+  assert.equal(aboveCap({ ...btc, quoteUsd: '1' }, ticket, '200'), false)
+  assert.equal(aboveCap({ ...btc, quoteUsd: '1' }, ticket, '50'), true)
+  assert.equal(aboveCap({ ...btc, quoteUsd: null }, ticket, '200'), true)
 })

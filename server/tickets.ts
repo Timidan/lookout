@@ -1,15 +1,12 @@
 import { HTTPException } from 'hono/http-exception'
-import { formatUnits, parseUnits } from 'viem'
 import type { SpotClearinghouseStateResponse, UserFillsResponse } from '@nktkas/hyperliquid/api/info'
 import type { Account, OrderIntent, OrderResult, Ticket } from '../shared/api.js'
-import { db, agent, sampleAddress, sampleWarning, type device } from './pair.js'
-import { account, book, collateralWarnings, info, market, marketHistory, type Market } from './venue.js'
-import { priceTicket } from './pricing.js'
+import { db, agent, sampleAddress, sampleWarning, type Device } from './pair.js'
+import { account, collateralWarnings } from './account.js'
+import { book, info, market, marketHistory, type Market } from './venue.js'
+import { aboveCap, dec, one as unit, priceTicket, print } from './pricing.js'
 import { leverage, place, recoverOrder } from './signing.js'
 
-type Device = ReturnType<typeof device>
-const unit = 10n ** 18n
-const dec = (s: string) => parseUnits(s, 18)
 export function owner(session: Device): string {
   if (!session.address) throw new HTTPException(403, {message: sampleAddress ? sampleWarning : 'Pair your wallet to trade'})
   return session.address
@@ -21,7 +18,7 @@ db.exec(`CREATE TABLE IF NOT EXISTS tickets (
 )`)
 const active = new Map<string, Promise<OrderResult>>()
 const trading = new Set<string>()
-type Row = { ticket: string; is_limit: number; expires: number; state: string; result: string | null }
+type Row = { ticket: string; is_limit: number; state: string; result: string | null }
 
 export async function withOwnerAction<T>(address: string, run: () => Promise<T>): Promise<T> {
   if (trading.has(address)) throw new HTTPException(409, {message:'Another action is running. Try again shortly'})
@@ -51,13 +48,7 @@ async function usualUsd(address: string, m: Market): Promise<string | undefined>
   }
   if (!amounts.length) return
   amounts.sort((a,b) => a < b ? -1 : a > b ? 1 : 0)
-  return formatUnits((amounts[(amounts.length - 1) >> 1] + amounts[amounts.length >> 1]) / 2n, 18)
-}
-
-function aboveCap(m: Market, t: Ticket) {
-  const bound = dec(t.px), bid = dec(m.bid ?? '0')
-  const px = t.side === 'sell' && bid > bound ? bid : bound
-  return dec(t.size) * px * dec(m.quoteUsd ?? '0') > dec(process.env.MAX_ORDER_USD ?? '200') * unit * unit
+  return print((amounts[(amounts.length - 1) >> 1] + amounts[amounts.length >> 1]) / 2n)
 }
 
 async function verifyCashExit(address: string, m: Market, t: Ticket) {
@@ -109,7 +100,7 @@ export async function closePosition(session: Device, id: string, fraction: unkno
   const p = (snapshot ?? await account(owner(session))).positions.find(p => p.instrumentId === id)
   if (!p || Number(p.size) === 0) throw new HTTPException(404, {message:'No position here. Choose an open position'})
   const ratio = String(fraction).includes('e') ? fraction.toFixed(18) : String(fraction)
-  const size = formatUnits(dec(p.size.replace(/^-/, '')) * dec(ratio) / unit, 18)
+  const size = print(dec(p.size.replace(/^-/, '')) * dec(ratio) / unit)
   return preview(session, {instrumentId:id, side: p.kind === 'perp' && p.size.startsWith('-') ? 'buy' : 'sell',
     size, reduceOnly:p.kind === 'perp'}, fixedId)
 }
@@ -128,7 +119,7 @@ async function reconcile(address: string, t: Ticket): Promise<OrderResult> {
 // A card can hold the owner lock across multiple close tickets.
 export async function confirmLocked(session: Device, id: string, sourceDevice = session.id): Promise<OrderResult> {
   const address = owner(session)
-  const row = db.prepare('SELECT * FROM tickets WHERE id=? AND device=?').get(id, sourceDevice) as Row | undefined
+  const row = db.prepare('SELECT ticket,is_limit,state,result FROM tickets WHERE id=? AND device=?').get(id, sourceDevice) as Row | undefined
   if (!row) throw new HTTPException(404, {message:'Ticket not found. Get a fresh price'})
   const ticket: Ticket = JSON.parse(row.ticket)
   // A preview created in sample mode stays read-only if the device pairs before it expires.
@@ -142,24 +133,29 @@ export async function confirmLocked(session: Device, id: string, sourceDevice = 
     return saved
   }
   if (row.state !== 'ready') return reconcile(address,ticket)
-  const ensureFresh = () => {
-    if (ticket.expiresAt <= Date.now()) throw new HTTPException(410, {message:'Price expired'})
+  const ensureFresh = (margin = 0) => {
+    if (ticket.expiresAt - margin <= Date.now()) throw new HTTPException(410, {message:'Price expired'})
   }
   ensureFresh()
+  let changedLeverage = false
   const m = await market(ticket.instrument.id)
   if (!ticket.reduceOnly && aboveCap(m,ticket)) {
     if (m.kind !== 'perp' && ticket.side === 'sell') await verifyCashExit(address,m,ticket)
-    else throw new HTTPException(409, {message:'Order exceeds the cap. Try a smaller size'})
+    else throw m.quoteUsd ? new HTTPException(409, {message:'Order exceeds the cap. Try a smaller size'})
+      : new HTTPException(503, {message:'Dollar price unavailable. Try again shortly'})
   }
   if (ticket.leverage !== undefined) {
     const data = await info<{leverage:{type:'isolated'|'cross';value:number}}>({type:'activeAssetData',user:address,coin:m.id})
     if (!data?.leverage || !['isolated','cross'].includes(data.leverage.type)) throw new HTTPException(502,{message:'Leverage unavailable. Try again shortly'})
     if (data.leverage.value !== ticket.leverage) {
-      ensureFresh()
+      // Leverage changes before the order. Both must land on this price, so the ticket needs time left for
+      // both now; after the change, an expiry check would only strand the new leverage without the order.
+      ensureFresh(5_000)
       await leverage(agent(session.id),m,ticket.leverage,data.leverage.type === 'cross')
+      changedLeverage = true
     }
   }
-  ensureFresh()
+  if (!changedLeverage) ensureFresh()
   const key = agent(session.id)
   const claimed = db.prepare("UPDATE tickets SET state='sending' WHERE id=? AND state='ready'").run(id)
   if (!claimed.changes) return reconcile(address,ticket)

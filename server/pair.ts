@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { closeSync, openSync } from 'node:fs'
 import { DatabaseSync } from 'node:sqlite'
 import { isDeepStrictEqual } from 'node:util'
-import type { Hono } from 'hono'
+import type { Context, Hono } from 'hono'
 import { HTTPException } from 'hono/http-exception'
 import { isAddress, recoverTypedDataAddress, type Address, type Hex } from 'viem'
 import { generatePrivateKey, privateKeyToAddress } from 'viem/accounts'
@@ -45,7 +45,8 @@ export function agent(id: string): Hex {
 }
 
 const digest = (token: string) => createHash('sha256').update(token).digest('hex')
-export function device(token: string): {id:string; address:string|null} {
+export type Device = {id:string; address:string|null}
+export function device(token: string): Device {
   const row = /^[0-9a-f]{64}$/.test(token) && db.prepare(
     'SELECT id, paired_owner FROM sessions WHERE token_hash=? AND COALESCE(expires, code_expires)>?',
   ).get(digest(token), Date.now())
@@ -53,8 +54,8 @@ export function device(token: string): {id:string; address:string|null} {
   return { id: row.id as string, address: row.paired_owner as string|null }
 }
 
-function bearer(header: string | undefined) {
-  return device(/^Bearer ([0-9a-f]{64})$/i.exec(header || '')?.[1] || '')
+export function session(c: Context) {
+  return device(/^Bearer ([0-9a-f]{64})$/i.exec(c.req.header('Authorization') ?? '')?.[1] ?? '')
 }
 
 function pending(code: string) {
@@ -92,11 +93,11 @@ export function registerPair(app: Hono) {
     return c.json({ code, deviceToken: token, pairUrl: url.toString(), expiresAt })
   })
   app.get('/api/pair/status', c => {
-    const { address } = bearer(c.req.header('Authorization'))
+    const { address } = session(c)
     return c.json(address ? { paired: true, address } : { paired: false, ...(sampleAddress && {sample:true}) })
   })
   app.post('/api/unpair', c => {
-    const { id } = bearer(c.req.header('Authorization'))
+    const { id } = session(c)
     db.prepare('DELETE FROM sessions WHERE id=?').run(id)
     return c.json({ ok: true })
   })

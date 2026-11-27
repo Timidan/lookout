@@ -3,14 +3,15 @@ import { HTTPException } from 'hono/http-exception'
 import type { ActResult, Card, OrderResult } from '../shared/api.js'
 import { exact, ticker } from '../shared/format.js'
 import { nextStack, type CardSnapshot } from './cards.js'
-import { agent, db, sampleAddress, sampleWarning, type device } from './pair.js'
+import { agent, db, sampleAddress, sampleWarning, type Device } from './pair.js'
 import { cancel, placePositionStop, recoverOrder, venueReason } from './signing.js'
 import { closePosition, confirmLocked, owner, withOwnerAction } from './tickets.js'
-import { market } from './venue.js'
+import { market, type Market } from './venue.js'
 
-type Device = ReturnType<typeof device>
-type Run = { nonce:string; result:string|null }
+type Run = { nonce:string; result:string|null; approved:string|null }
 db.exec('CREATE TABLE IF NOT EXISTS card_runs(owner TEXT, card TEXT, nonce TEXT NOT NULL, result TEXT, PRIMARY KEY(owner,card))')
+// The card a run approved, so a retry can finish it after a partial close has changed the card's id.
+try { db.exec('ALTER TABLE card_runs ADD COLUMN approved TEXT') } catch { /* Added by an earlier start. */ }
 const changed = () => new HTTPException(409,{message:'That changed. Showing the latest'})
 const sampleCard: Card = {id:'sample',kind:'sample',line1:'Sample account · read-only',line2:'Tap to pair your wallet',
   action:{type:'pair'},confirm:'tap'}
@@ -56,12 +57,12 @@ export async function currentStack(address: string | null) {
   return stack
 }
 
-async function execute(s: Device, card: Card, snapshot: CardSnapshot, nonce: string, replay: boolean): Promise<ActResult> {
+async function execute(s: Device, card: Card, snapshot: CardSnapshot, nonce: string, replay: boolean, known?: Market): Promise<ActResult> {
   const a = card.action!, address = owner(s), account = snapshot.account!
   if (a.type === 'add_stop' || a.type === 'move_stop') {
     const p = account.positions.find(p => p.instrumentId === a.instrumentId)
     if (!p) throw changed()
-    const m = await market(a.instrumentId)
+    const m = known ?? await market(a.instrumentId)
     const result = replay ? await recoverOrder(address,nonce,'0') :
       await placePositionStop(agent(s.id),m,p.size.startsWith('-'),a.triggerPx,nonce,address)
     if (!result) throw new HTTPException(503,{message:'Stop pending. Check open orders'})
@@ -141,21 +142,25 @@ export async function actOnCard(s: Device, id: unknown): Promise<ActResult> {
   const address = owner(s)
   return withOwnerAction(address,async () => {
     const {cards,snapshot} = await currentStack(address)
-    const card = cards.find(c => c.id === id)
+    const previous = db.prepare('SELECT nonce,result,approved FROM card_runs WHERE owner=? AND card=?').get(address,id) as Run|undefined
+    if (previous?.result) return JSON.parse(previous.result)
+    const started: Card | undefined = previous?.approved ? JSON.parse(previous.approved) : undefined
+    const card = cards.find(c => c.id === id) ?? started
     if (!card) throw changed()
     if (!card.action) throw new HTTPException(400,{message:'This card has no action.'})
     if (card.action.type === 'open_market') return {ok:true,message:'Open market'}
-    const previous = db.prepare('SELECT nonce,result FROM card_runs WHERE owner=? AND card=?').get(address,id) as Run|undefined
-    if (previous?.result) return JSON.parse(previous.result)
     const nonce = previous?.nonce ?? randomUUID()
-    let approved = card
+    let approved = started ?? card
     if (!previous && 'triggerPx' in card.action) {
       const displayed = shown.get(s.id)?.stops.get(id)
       if (!displayed || !safeStop(displayed,snapshot)) throw changed()
       approved = displayed
     }
-    if (!previous) db.prepare('INSERT INTO card_runs(owner,card,nonce) VALUES(?,?,?)').run(address,id,nonce)
-    const result = await execute(s,approved,snapshot,nonce,!!previous)
+    // Anything that can fail before the venue is called happens before the run is recorded, so such a failure
+    // never leaves a run that can only look up a stop that was never sent.
+    const known = approved.action && 'triggerPx' in approved.action ? await market(approved.action.instrumentId) : undefined
+    if (!previous) db.prepare('INSERT INTO card_runs(owner,card,nonce,approved) VALUES(?,?,?,?)').run(address,id,nonce,JSON.stringify(approved))
+    const result = await execute(s,approved,snapshot,nonce,!!previous,known)
     if (result.ok || result.results?.some(r => r.status !== 'rejected') && !result.message.includes('pending')) {
       db.prepare('UPDATE card_runs SET result=? WHERE owner=? AND card=?').run(JSON.stringify(result),address,id)
     } else if (!result.message.includes('pending')) {

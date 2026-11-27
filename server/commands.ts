@@ -4,7 +4,7 @@ import { exact, percent, usd } from '../shared/format.js'
 type Searchable = Instrument & { searchText?: string; outcomeSide?: 0 | 1; yesFor?: string; noFor?: string }
 type OutcomeAnswer = 'yes' | 'no'
 
-export type Command =
+type Command =
   | { type: 'order'; intent: OrderIntent }
   | { type: 'close'; instrumentId: string; fraction: number }
   | { type: 'cancel'; instrumentId: string }
@@ -65,6 +65,9 @@ function resolve(query: string, markets: readonly Searchable[], command: (m: Ins
     const canonical = usdc.find(m => words(m.id) === words(query + ' USDC'))
     if (canonical || usdc.length === 1) return command(canonical ?? usdc[0])
   }
+  // Builder-deployed perp exchanges reuse tickers (testnet lists ten BTC perps as "BTC"); the main exchange's is meant.
+  const main = tied.filter(m => !m.id.includes(':'))
+  if (main.length === 1 && tied.every(m => m.kind === main[0].kind)) return command(main[0])
   if (answer) {
     // A named team's next head-to-head game takes precedence over a season book.
     const games = tied.filter(m => m.yesFor && m.noFor && m.expiresAt).sort((a, b) => a.expiresAt! - b.expiresAt!)

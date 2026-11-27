@@ -4,8 +4,6 @@ import { HTTPException } from 'hono/http-exception'
 import type { Instrument } from '../shared/api.js'
 import { price, ticker } from '../shared/format.js'
 
-export { account, collateralWarnings } from './account.js'
-
 const transport = new HttpTransport({ isTestnet: true, apiUrl: 'https://api.hyperliquid-testnet.xyz', timeout: 8_000, fetchOptions: { redirect: 'error' } })
 export async function info<T>(body: Record<string, unknown>): Promise<T> {
   try {
@@ -225,6 +223,67 @@ export function sparkline(candles: Candle[], start: number): History {
   const trend = bars.map(b => Math.round(1000 * Math.min(1, Math.max(0, (b.close-mid)/width + 0.5))) / 1000)
   return {spark, trend, trendLow: decimal(mid - width/2), trendHigh: decimal(mid + width/2),
     change1h: (bars[11].close - bars[0].open) / bars[0].open}
+}
+
+// Market graphs are a live ticker: the last 90 seconds of mid prices, so the line moves with each tick
+// and scrolls as time passes. An hour of BTC spans a few hundred dollars, about $6 a pixel, and five
+// minutes about $1.50 a pixel, so second-to-second moves barely showed at either.
+const liveWindow = 90_000
+const ticks = new Map<string, {t: number; px: number}[]>()
+let recorded = 0
+
+export function recordTick(id: string, time: number, mid: number, seed = true) {
+  if (seed && !ticks.has(id)) seedTicks(id, time)
+  const list = ticks.get(id) ?? []
+  if (!(mid > 0) || (list.length && time <= list[list.length - 1]!.t)) return
+  list.push({t: time, px: mid})
+  while (list[0]!.t < time - liveWindow) list.shift()
+  ticks.set(id, list)
+  // Markets nobody watches stop ticking; drop their last samples now and then instead of keeping them forever.
+  if (++recorded % 1000 === 0) for (const [key, kept] of ticks) if (!kept.length || kept[kept.length - 1]!.t < time - liveWindow) ticks.delete(key)
+}
+
+// One-minute closes fill the window until live ticks cover it.
+function seedTicks(id: string, now: number) {
+  ticks.set(id, [])
+  void info<CandleSnapshotResponse>({type:'candleSnapshot',req:{coin:id,interval:'1m',startTime:now-liveWindow,endTime:now}})
+    .then(rows => {
+      const list = ticks.get(id) ?? [], first = list[0]?.t ?? Infinity
+      const closes = rows.map(r => ({t: r.t + 60_000, px: Number(r.c)})).filter(p => p.px > 0 && p.t < first && p.t > now - liveWindow)
+      ticks.set(id, [...closes, ...list])
+    })
+    .catch(() => {})
+}
+
+export function liveHistory(id: string, history: History, mid: string | null, points = 60): History {
+  const list = ticks.get(id) ?? []
+  if (list.length < 2) return withLive(history, mid)
+  const end = list[list.length - 1]!.t, start = Math.max(list[0]!.t, end - liveWindow)
+  const prices: number[] = []
+  for (let i = 0, j = 0; i < points; i++) {
+    const at = start + (end - start) * i / (points - 1)
+    while (j + 1 < list.length && list[j + 1]!.t <= at) j++
+    prices.push(list[j]!.px)
+  }
+  const low = Math.min(...prices), high = Math.max(...prices)
+  // A flat market stays a flat line in the middle instead of magnifying cents into swings.
+  const width = Math.max(high - low, (high + low) / 2 * 0.0005), mid0 = (high + low) / 2
+  return { ...history, trend: prices.map(p => Math.round(1000 * ((p - mid0) / width + 0.5)) / 1000),
+    trendLow: decimal(mid0 - width / 2), trendHigh: decimal(mid0 + width / 2) }
+}
+
+// The newest point is the live price, so the graph's end moves between candle refreshes.
+// A price outside the hour's range widens the scale instead of being clipped.
+export function withLive(history: History, mid: string | null): History {
+  const { trend, trendLow, trendHigh } = history
+  const live = Number(mid)
+  if (!trend?.length || !(live > 0) || trendLow === undefined || trendHigh === undefined) return history
+  const low = Number(trendLow), high = Number(trendHigh)
+  const values = trend.map(t => low + t * (high - low))
+  values[values.length - 1] = live
+  const bottom = Math.min(low, live), top = Math.max(high, live)
+  return { ...history, trend: values.map(v => Math.round(1000 * (v - bottom) / (top - bottom)) / 1000),
+    trendLow: decimal(bottom), trendHigh: decimal(top) }
 }
 
 const histories = new Map<string, {value: History; pending: Promise<History>}>()

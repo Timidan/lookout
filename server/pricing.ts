@@ -8,16 +8,17 @@ type Level = { px: string; sz: string }
 type Book = { levels: [Level[], Level[]] }
 type PricedInstrument = Instrument & { quoteUsd?: string | null }
 type QuoteOptions = { defaultUsd?: string; stopPct?: string; targetPct?: string; closing?: boolean; assumed?: string }
-const one = 10n ** 18n
-const print = (value: bigint) => formatUnits(value, 18)
-const min = (a: bigint, b: bigint) => a < b ? a : b
+export const one = 10n ** 18n
+export const dec = (value: string) => parseUnits(value, 18)
+export const print = (value: bigint) => formatUnits(value, 18)
+export const min = (a: bigint, b: bigint) => a < b ? a : b
 const max = (a: bigint, b: bigint) => a > b ? a : b
 
 function positive(value: unknown, label: string): bigint {
   if (typeof value !== 'string' || value.length > 48 || !/^(?:\d+(?:\.\d{1,18})?|\.\d{1,18})$/.test(value)) {
     throw new Error(`Check the ${label}`)
   }
-  const parsed = parseUnits(value, 18)
+  const parsed = dec(value)
   if (parsed <= 0n) throw new Error(`Use a positive ${label}`)
   return parsed
 }
@@ -54,11 +55,20 @@ function trigger(instrument: Instrument, entry: bigint, buy: boolean, stop: bool
   return print(rounded)
 }
 
-export function defaultStopPx(instrument: Instrument, entryPx: string, side: 'buy' | 'sell', stopPct = process.env.STOP_PCT ?? '2'): string {
+export function defaultStopPx(instrument: Instrument, entryPx: string, side: 'buy' | 'sell', stopPct: string): string {
   return trigger(instrument, positive(entryPx, 'entry price'), side === 'buy', true, stopPct)
 }
 
 /** Fixed-point pricing. The caller supplies the book and configuration. */
+// Checked again when an order is sent. Without a USD rate the order's dollar value is unknown, so it counts
+// as over the cap: an unknown value never passes.
+export function aboveCap(m: PricedInstrument, t: Ticket, cap = process.env.MAX_ORDER_USD ?? '200'): boolean {
+  if (!m.quoteUsd) return true
+  const bound = dec(t.px), bid = dec(m.bid ?? '0')
+  const px = t.side === 'sell' && bid > bound ? bid : bound
+  return dec(t.size) * px * dec(m.quoteUsd) > dec(cap) * one * one
+}
+
 export function quoteOrder(instrument: PricedInstrument, book: Book, intent: OrderIntent, maxUsd: string, slippageBps: number, options: QuoteOptions = {}): Omit<Ticket, 'id' | 'expiresAt'> {
   if (!intent || intent.instrumentId !== instrument.id || !['buy', 'sell'].includes(intent.side)) throw new Error('Choose a market and an order side')
   if (intent.size !== undefined && intent.usd !== undefined) throw new Error('Choose dollars or units')

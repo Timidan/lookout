@@ -73,8 +73,10 @@ export function subscribe(sub: Subscription, listener: Listener): () => void {
   feed.listeners.add(listener)
   if (feed.latest !== undefined) {
     const current = feed
+    // The replay runs outside the socket handler's guard; a throw here would also stop the server.
     queueMicrotask(() => {
-      if (current.listeners.has(listener) && current.latest !== undefined) listener(current.latest)
+      if (!current.listeners.has(listener) || current.latest === undefined) return
+      try { listener(current.latest) } catch (error) { console.error('Feed listener failed', sub.type, error) }
     })
   }
   connect()
