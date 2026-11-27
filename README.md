@@ -10,7 +10,7 @@ Lookout shows the one Hyperliquid position that needs you on your Even G2 glasse
 |---|---|
 | Track | 02 · Crypto & DeFi (Hyperliquid testnet) |
 | Hosted app | https://lookout.timidan.xyz |
-| Demo video | to come |
+| Demo video | https://youtu.be/JNKYFDJpk-4 |
 | Try it | `evenhub-simulator https://lookout.timidan.xyz`, or run it locally below |
 
 ## What it does
