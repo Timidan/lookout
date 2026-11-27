@@ -159,6 +159,8 @@ if (process.env.STATIC_DIR) {
     await next()
     if (c.res.headers.get('Content-Type')?.startsWith('text/html')) c.res.headers.set('Cache-Control', 'no-cache')
   })
+  // The site is at /, the glasses app at /app/.
+  app.get('/app', c => c.redirect('/app/'))
   app.use('*', serveStatic({root:process.env.STATIC_DIR}))
 }
 

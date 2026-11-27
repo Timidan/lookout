@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lookout · Hyperliquid on Even G2</title>
+<meta name="description" content="The one Hyperliquid position that needs you, on your Even G2 glasses, with the fix already loaded: tap to set the stop, hold to close. Testnet.">
+<meta property="og:title" content="Lookout">
+<meta property="og:description" content="The one Hyperliquid position that needs you, on your Even G2 glasses. Tap to set the stop, hold to close.">
+<meta property="og:image" content="https://lookout.timidan.xyz/cards/peak-no-stop.png">
+<link rel="icon" href="logo.png">
+<style>
+  @font-face { font-family: Noto; src: url(fonts/NotoSans-Regular.ttf); font-weight: 400; font-display: swap }
+  @font-face { font-family: Noto; src: url(fonts/NotoSans-Medium.ttf); font-weight: 500; font-display: swap }
+  :root { --bg: #000; --green: #2bff2b; --ink: #b8f5b8; --dim: #6fae6f; --line: #1f4d1f }
+  * { box-sizing: border-box }
+  html { background: var(--bg) }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 Noto, system-ui, sans-serif }
+  a { color: var(--green) }
+  a:focus-visible, .button:focus-visible { outline: 2px solid var(--green); outline-offset: 3px }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line) }
+  header img { height: 32px; width: 120px; image-rendering: pixelated; display: block }
+  nav { display: flex; gap: 20px; flex-wrap: wrap }
+  nav a { text-decoration: none; color: var(--ink) } nav a:hover { color: var(--green) }
+  h1, h2, h3 { color: var(--green); font-weight: 500; line-height: 1.2 }
+  h1 { font-size: clamp(30px, 5vw, 46px); margin: 0 0 16px; max-width: 18ch }
+  h2 { font-size: 28px; margin: 0 0 20px }
+  h3 { font-size: 18px; margin: 14px 0 4px }
+  section { padding: 64px 0; border-bottom: 1px solid var(--line) }
+  .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center }
+  .lead { font-size: 20px; margin: 0 0 28px; max-width: 32ch }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap }
+  .button { display: inline-block; padding: 11px 18px; border: 1px solid var(--green); color: var(--green); text-decoration: none; font-weight: 500 }
+  .button.primary { background: var(--green); color: #000 }
+  .button:hover { background: var(--green); color: #000 }
+  .frame { display: block; width: 100%; height: auto; aspect-ratio: 2 / 1; border: 1px solid var(--line); background: #000 }
+  .note { color: var(--dim); font-size: 14px; margin: 8px 0 0 }
+  .film { position: relative; aspect-ratio: 16 / 9; border: 1px solid var(--line) }
+  .film iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0 }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 36px 32px }
+  .cards p { margin: 0; color: var(--ink) }
+  table { border-collapse: collapse; width: 100% }
+  th, td { text-align: left; vertical-align: top; padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line) }
+  th { color: var(--green); font-weight: 500; white-space: nowrap; width: 9rem }
+  ol { padding-left: 1.2em; margin: 0 } ol li { margin: 0 0 22px; padding-left: 4px }
+  code { font: 15px/1.5 ui-monospace, monospace; color: var(--green); background: #071407; padding: 2px 6px; word-break: break-all }
+  pre { margin: 10px 0 0; padding: 12px 14px; background: #071407; border: 1px solid var(--line); overflow-x: auto }
+  pre code { padding: 0; background: none }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 40px }
+  ul.plain { margin: 0; padding-left: 1.1em } ul.plain li { margin: 0 0 10px }
+  footer { padding: 32px 0 48px; color: var(--dim); font-size: 14px; display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap }
+  @media (max-width: 760px) {
+    .hero, .cards, .two { grid-template-columns: 1fr }
+    section { padding: 44px 0 }
+    th { width: auto }
+    header { flex-wrap: wrap }
+    nav { gap: 16px; font-size: 15px }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="./" aria-label="Lookout home"><img src="wordmark.png" alt="Lookout" width="120" height="32"></a>
+    <nav aria-label="primary">
+      <a href="#film">Film</a>
+      <a href="#cards">Cards</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/Timidan/lookout">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <div>
+      <h1>The one Hyperliquid position that needs you, on your Even G2 glasses.</h1>
+      <p class="lead">With the fix already loaded: tap to set the stop, hold to close.</p>
+      <div class="actions">
+        <a class="button primary" href="#install">Install on G2</a>
+        <a class="button" href="#film">Watch the film</a>
+      </div>
+    </div>
+    <div>
+      <img class="frame" src="cards/peak-no-stop.png" width="576" height="288" alt="Glasses display: NVDA short 20x has no stop. 290.7. Tap to set stop at 290.7.">
+      <p class="note">The G2 display, from the Even Hub simulator on Hyperliquid testnet data.</p>
+    </div>
+  </section>
+
+  <section id="film">
+    <h2>Trade away from the desk</h2>
+    <div class="film">
+      <iframe src="https://www.youtube-nocookie.com/embed/JNKYFDJpk-4" title="Lookout film" loading="lazy" allow="encrypted-media; picture-in-picture; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </div>
+    <p class="note">51 seconds. Real simulator frames over stock footage; the glasses view is simulated.</p>
+  </section>
+
+  <section id="cards">
+    <h2>One card at a time, ranked by what needs you</h2>
+    <div class="cards">
+      <div><img class="frame" src="cards/stop-too-far.png" width="576" height="288" alt="SOL long 10x, stop is too far. Tap to move stop to 69.5." loading="lazy"><h3>Liquidation before stop</h3><p>Tap moves the stop inside liquidation.</p></div>
+      <div><img class="frame" src="cards/no-stop.png" width="576" height="288" alt="NVDA long 20x has no stop. Tap to set stop at 272.23." loading="lazy"><h3>No stop</h3><p>Tap sets a stop at the price shown.</p></div>
+      <div><img class="frame" src="cards/near-liq.png" width="576" height="288" alt="BTC long 10x is near liquidation, 1%. Hold to reduce by half." loading="lazy"><h3>Near liquidation</h3><p>Hold two seconds to reduce by half.</p></div>
+      <div><img class="frame" src="cards/in-profit.png" width="576" height="288" alt="ETH long is up $41. Tap to move stop to entry 3,050." loading="lazy"><h3>In profit</h3><p>Tap moves the stop to entry.</p></div>
+      <div><img class="frame" src="cards/btc.png" width="576" height="288" alt="BTC 61,253, a line of recent prices, tap to trade BTC, bid and ask." loading="lazy"><h3>Markets</h3><p>Live price and a line of the last 90 seconds. Tap to trade.</p></div>
+      <div><img class="frame" src="cards/ticket.png" width="576" height="288" alt="Long BTC $50 at about 59,898, stop 58,701, target 62,294. Tap to send, swipe to resize, 27 seconds." loading="lazy"><h3>Ticket</h3><p>Your usual size, with a stop and a target. Swipe to resize, tap to send.</p></div>
+      <div><img class="frame" src="cards/orders.png" width="576" height="288" alt="3 buy orders waiting. Hold to cancel them. Your 3 stops stay on the exchange." loading="lazy"><h3>Waiting orders</h3><p>Hold to cancel them; your stops stay.</p></div>
+      <div><img class="frame" src="cards/close-all.png" width="576" height="288" alt="5 positions open, +$25.35. Hold to close all 5." loading="lazy"><h3>Open positions</h3><p>Hold to close all.</p></div>
+    </div>
+    <p class="note">Ticket and hero from the hosted app's read-only sample account. The other cards are drawn with the project's stand-in backend, since one account rarely shows them all at once.</p>
+  </section>
+
+  <section id="controls">
+    <h2>Controls</h2>
+    <table>
+      <tr><th scope="row">Tap</th><td>Take the action shown, or send a priced order</td></tr>
+      <tr><th scope="row">Hold</th><td>Confirm a big action (2 s), so a brushed temple never closes a position. Elsewhere, hold to speak a command such as "Long BTC" (needs a speech-to-text endpoint; the hosted app has none yet)</td></tr>
+      <tr><th scope="row">Double tap</th><td>Back</td></tr>
+      <tr><th scope="row">Swipe</th><td>Next card, or change a ticket's size</td></tr>
+    </table>
+  </section>
+
+  <section id="install">
+    <h2>Install</h2>
+    <div class="two">
+      <ol>
+        <li><h3>On your G2</h3>Turn on developer mode in the Even app, then scan the code this prints:
+          <pre><code>npm install -g @evenrealities/evenhub-cli
+evenhub qr --url https://lookout.timidan.xyz/app</code></pre><p class="note">Built and tested in the simulator; not yet run on hardware.</p></li>
+        <li><h3>Pair your wallet</h3>The glasses show a six-letter code and a link. On your phone, your wallet signs one Hyperliquid <strong>testnet</strong> agent approval, valid for seven days. Before pairing, Lookout runs on a read-only sample account.</li>
+      </ol>
+      <ol start="3">
+        <li><h3>Or try it in the simulator</h3>
+          <pre><code>npm install -g @evenrealities/evenhub-simulator
+evenhub-simulator https://lookout.timidan.xyz/app</code></pre></li>
+        <li><h3>Package</h3><a href="lookout-0.1.0.ehpk" download>lookout-0.1.0.ehpk</a> (57 KB), the Even Hub package, built against this server. Source and setup on <a href="https://github.com/Timidan/lookout">GitHub</a>.</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="safety">
+    <h2>Testnet only</h2>
+    <ul class="plain">
+      <li>The approval names Hyperliquid testnet, so it cannot authorise a mainnet agent.</li>
+      <li>The agent key can trade but cannot withdraw. It stays encrypted on the server; the glasses hold only a session token.</li>
+      <li>New orders are capped at $200. Every new long or short carries a stop.</li>
+      <li>Lookout shows your own positions and acts only when you tap or hold. It gives no financial advice.</li>
+    </ul>
+  </section>
+
+  <footer>
+    <span>Lookout · built for the Heads Up: Even Realities hackathon</span>
+    <a href="https://github.com/Timidan/lookout">github.com/Timidan/lookout</a>
+  </footer>
+</div>
+</body>
+</html>

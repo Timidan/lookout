@@ -14,7 +14,8 @@ COPY server/package.json server/package-lock.json ./
 RUN npm ci
 COPY shared /src/shared
 COPY server ./
-COPY --from=app /src/app/dist ./public
+COPY site ./public
+COPY --from=app /src/app/dist ./public/app
 RUN mkdir -p data && chown node data
 USER node
 ENV STATIC_DIR=./public DB_PATH=./data/glasses.db PORT=8790

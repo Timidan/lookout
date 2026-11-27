@@ -9,9 +9,9 @@ Lookout shows the one Hyperliquid position that needs you on your Even G2 glasse
 | | |
 |---|---|
 | Track | 02 · Crypto & DeFi (Hyperliquid testnet) |
-| Hosted app | https://lookout.timidan.xyz |
+| Site | https://lookout.timidan.xyz (the glasses app itself is at `/app`) |
 | Demo video | https://youtu.be/JNKYFDJpk-4 |
-| Try it | `evenhub-simulator https://lookout.timidan.xyz`, or run it locally below |
+| Try it | `evenhub-simulator https://lookout.timidan.xyz/app`, or run it locally below |
 
 ## What it does
 
@@ -104,7 +104,7 @@ Without a backend, `npm run mock` in `app/` starts the stand-in on port 8788 (pa
 
 Tests: `npm test` in `server/` and in `app/`.
 
-To host it in one container: `docker build --build-arg VITE_API_BASE=https://your.host -t lookout .`, then run it with the same variables as `server/.env.example`.
+The container serves the site in `site/` at `/` and the glasses app at `/app/`. To host it in one container: `docker build --build-arg VITE_API_BASE=https://your.host -t lookout .`, then run it with the same variables as `server/.env.example`.
 
 ## What existed before 23 November
 
